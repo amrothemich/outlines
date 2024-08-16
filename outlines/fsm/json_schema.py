@@ -138,9 +138,13 @@ def validate_quantifiers(
             raise ValueError("max bound must be greater than or equal to min bound")
     return min_bound, max_bound
 
-def process_regex(args):
-    resolver, t, whitespace_pattern = args
-    return to_regex(resolver, t, whitespace_pattern)
+def initializer(resolver, whitespace_pattern):
+    global global_resolver, global_whitespace_pattern
+    global_resolver = resolver
+    global_whitespace_pattern = whitespace_pattern
+
+def process_regex(t):
+    return to_regex(global_resolver, t, global_whitespace_pattern)
 
 def to_regex(
     resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None
@@ -246,17 +250,9 @@ def to_regex(
     elif "anyOf" in instance:
         import multiprocessing
         
-        # Set the multiprocessing start method to 'spawn'
-        multiprocessing.set_start_method('fork')
-        
-
-
-        context = multiprocessing.get_context('fork')
-        
         # Use multiprocessing as usual
-        with context.Pool() as pool:
-            regexes = list(pool.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["anyOf"]]))
-
+        with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern)) as pool:
+            regexes = list(pool.map(process_regex, list(instance["anyOf"])))
         return rf"({'|'.join(subregexes)})"
 
     # To validate against oneOf, the given data must be valid against exactly

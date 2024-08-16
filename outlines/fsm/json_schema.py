@@ -249,14 +249,14 @@ def to_regex(
         
         # Set the multiprocessing start method to 'spawn'
         multiprocessing.set_start_method('spawn')
+        
 
 
-        # Set the serializer to cloudpickle or dill
-        import sys
-        multiprocessing.set_executable(sys.executable)
+        context = multiprocessing.get_context('spawn')
+        context.set_serializer(cloudpickle.dumps)
         
         # Use multiprocessing as usual
-        with multiprocessing.Pool() as pool:
+        with context.Pool() as pool:
             regexes = list(pool.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["anyOf"]]))
 
         return rf"({'|'.join(subregexes)})"

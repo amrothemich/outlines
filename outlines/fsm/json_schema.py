@@ -245,22 +245,13 @@ def to_regex(
     # any (one or more) of the given subschemas.
     elif "anyOf" in instance:
         import multiprocessing
-        import cloudpickle  # or import dill
-        class CloudpickleSerializer(multiprocessing.reduction.ForkingPickler):
-            def __init__(self, *args):
-                super().__init__(*args)
-                self.dispatch_table = cloudpickle.dispatch_table  # or dill.dispatch_table
-        
-        # Set the custom serializer as the default serializer
-        multiprocessing.reduction.ForkingPickler = CloudpickleSerializer
-
         
         # Set the multiprocessing start method to 'spawn'
-        multiprocessing.set_start_method('spawn')
+        multiprocessing.set_start_method('fork')
         
 
 
-        context = multiprocessing.get_context('spawn')
+        context = multiprocessing.get_context('fork')
         
         # Use multiprocessing as usual
         with context.Pool() as pool:

@@ -249,9 +249,11 @@ def to_regex(
         
         # Set the multiprocessing start method to 'spawn'
         multiprocessing.set_start_method('spawn')
-        
+
+
         # Set the serializer to cloudpickle or dill
-        multiprocessing.set_executable(None)
+        import sys
+        multiprocessing.set_executable(sys.executable)
         
         # Use multiprocessing as usual
         with multiprocessing.Pool() as pool:

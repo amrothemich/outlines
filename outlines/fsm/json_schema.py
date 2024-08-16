@@ -3,7 +3,6 @@ import json
 import re
 import warnings
 from typing import Callable, Optional, Tuple
-import dill as pickle
 
 from jsonschema.protocols import Validator
 from pydantic import create_model
@@ -184,9 +183,7 @@ def to_regex(
             {"type": "array"},
             {"type": "object"},
         ]
-        import concurrent.futures
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            regexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in types]))
+        regexes = [to_regex(resolver, t, whitespace_pattern) for t in types]
         regexes = [rf"({r})" for r in regexes]
         return rf"{'|'.join(regexes)}"
 
@@ -202,31 +199,14 @@ def to_regex(
         # For each property after it (optional), we add with a comma before the property.
         if any(is_required):
             last_required_pos = max([i for i, value in enumerate(is_required) if value])
-            
-            # Non-threaded code:
-                # for i, (name, value) in enumerate(properties.items()):
-                #   subregex = f'{whitespace_pattern}"{re.escape(name)}"{whitespace_pattern}:{whitespace_pattern}'
-                #   subregex += to_regex(resolver, value, whitespace_pattern)
-                #   if i < last_required_pos:
-                #         subregex = f"{subregex}{whitespace_pattern},"
-                #   elif i > last_required_pos:
-                #         subregex = f"{whitespace_pattern},{subregex}"
-                #   regex += subregex if is_required[i] else f"({subregex})?"
-
-            import concurrent.futures
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                
-                property_subregexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in properties.values()]))
-            for i in range(len(property_subregexes)):
-                subregex = f'{whitespace_pattern}"{re.escape(list(properties.keys())[i])}"{whitespace_pattern}:{whitespace_pattern}'
-                subregex += property_subregexes[i]
+            for i, (name, value) in enumerate(properties.items()):
+                subregex = f'{whitespace_pattern}"{re.escape(name)}"{whitespace_pattern}:{whitespace_pattern}'
+                subregex += to_regex(resolver, value, whitespace_pattern)
                 if i < last_required_pos:
                     subregex = f"{subregex}{whitespace_pattern},"
                 elif i > last_required_pos:
                     subregex = f"{whitespace_pattern},{subregex}"
                 regex += subregex if is_required[i] else f"({subregex})?"
-
-            
         # If no property is required, we have to create a possible pattern for each property in which
         # it's the last one necessarilly present. Then, we add the others as optional before and after
         # following the same strategy as described above.
@@ -255,41 +235,47 @@ def to_regex(
     # To validate against allOf, the given data must be valid against all of the
     # given subschemas.
     elif "allOf" in instance:
-        subregexes = subregexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["allOf"]]))
+        subregexes = [
+            to_regex(resolver, t, whitespace_pattern) for t in instance["allOf"]
+        ]
         subregexes_str = [f"{subregex}" for subregex in subregexes]
         return rf"({''.join(subregexes_str)})"
 
     # To validate against `anyOf`, the given data must be valid against
     # any (one or more) of the given subschemas.
     elif "anyOf" in instance:
-                    
-            # regexes = [
-            #     to_regex(resolver, {"type": t}, whitespace_pattern)
-            #     for t in instance_type
-            #     if t != "object"
-            # ]
+        import multiprocessing
+        import cloudpickle  # or import dill
+        
+        # Set the multiprocessing start method to 'spawn'
+        multiprocessing.set_start_method('spawn')
+        
+        # Set the serializer to cloudpickle or dill
+        multiprocessing.set_executable(None)
+        multiprocessing.set_context(multiprocessing.get_context('spawn'))
+        
+        # Use multiprocessing as usual
+        with multiprocessing.Pool() as pool:
+            regexes = list(pool.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["anyOf"]]))
 
-        import concurrent.futures
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            subregexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["anyOf"]]))
-            
         return rf"({'|'.join(subregexes)})"
 
     # To validate against oneOf, the given data must be valid against exactly
     # one of the given subschemas.
     elif "oneOf" in instance:
-        import concurrent.futures
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            subregexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["oneOf"]]))
+        subregexes = [
+            to_regex(resolver, t, whitespace_pattern) for t in instance["oneOf"]
+        ]
+
+        xor_patterns = [f"(?:{subregex})" for subregex in subregexes]
 
         return rf"({'|'.join(xor_patterns)})"
 
     # Create pattern for Tuples, per JSON Schema spec, `prefixItems` determines types at each idx
     elif "prefixItems" in instance:
-        import concurrent.futures
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            element_patterns = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["prefixItems"]])) 
-        
+        element_patterns = [
+            to_regex(resolver, t, whitespace_pattern) for t in instance["prefixItems"]
+        ]
         comma_split_pattern = rf"{whitespace_pattern},{whitespace_pattern}"
         tuple_inner = comma_split_pattern.join(element_patterns)
         return rf"\[{whitespace_pattern}{tuple_inner}{whitespace_pattern}\]"
@@ -435,9 +421,9 @@ def to_regex(
                     legal_types.append({"type": "object", "depth": depth - 1})
                     legal_types.append({"type": "array", "depth": depth - 1})
 
-                import concurrent.futures
-                with concurrent.futures.ProcessPoolExecutor() as executor:
-                    regexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in legal_types])) 
+                regexes = [
+                    to_regex(resolver, t, whitespace_pattern) for t in legal_types
+                ]
                 return rf"\[{whitespace_pattern}({'|'.join(regexes)})(,{whitespace_pattern}({'|'.join(regexes)})){num_repeats}{allow_empty}{whitespace_pattern}\]"
 
         elif instance_type == "object":
@@ -505,18 +491,11 @@ def to_regex(
             # Here we need to make the choice to exclude generating an object
             # if the specification of the object is not give, even though a JSON
             # object that contains an object here would be valid under the specification.
-            
-            
-            # regexes = [
-            #     to_regex(resolver, {"type": t}, whitespace_pattern)
-            #     for t in instance_type
-            #     if t != "object"
-            # ]
-            # return rf"({'|'.join(regexes)})"
-            # add multithreading to use the max amount of jobs:
-            import concurrent.futures
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                regexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance_type])) 
+            regexes = [
+                to_regex(resolver, {"type": t}, whitespace_pattern)
+                for t in instance_type
+                if t != "object"
+            ]
             return rf"({'|'.join(regexes)})"
 
     raise NotImplementedError(

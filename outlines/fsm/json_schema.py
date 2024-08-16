@@ -3,6 +3,7 @@ import json
 import re
 import warnings
 from typing import Callable, Optional, Tuple
+import dill as pickle
 
 from jsonschema.protocols import Validator
 from pydantic import create_model

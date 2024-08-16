@@ -181,7 +181,7 @@ def to_regex(
             {"type": "object"},
         ]
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
             regexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), types))
         regexes = [rf"({r})" for r in regexes]
         return rf"{'|'.join(regexes)}"
@@ -210,7 +210,7 @@ def to_regex(
                 #   regex += subregex if is_required[i] else f"({subregex})?"
 
             import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ProcessPoolExecutor() as executor:
                 property_subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), properties.values()))
             for i in range(len(property_subregexes)):
                 subregex = f'{whitespace_pattern}"{re.escape(list(properties.keys())[i])}"{whitespace_pattern}:{whitespace_pattern}'
@@ -267,7 +267,7 @@ def to_regex(
             # ]
 
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
             subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["anyOf"]))
         return rf"({'|'.join(subregexes)})"
 
@@ -275,7 +275,7 @@ def to_regex(
     # one of the given subschemas.
     elif "oneOf" in instance:
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
             subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["oneOf"]))
         
         
@@ -287,7 +287,7 @@ def to_regex(
     # Create pattern for Tuples, per JSON Schema spec, `prefixItems` determines types at each idx
     elif "prefixItems" in instance:
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
             element_patterns = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["prefixItems"]))
         
         comma_split_pattern = rf"{whitespace_pattern},{whitespace_pattern}"
@@ -436,7 +436,7 @@ def to_regex(
                     legal_types.append({"type": "array", "depth": depth - 1})
 
                 import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
+                with concurrent.futures.ProcessPoolExecutor() as executor:
                     regexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), legal_types))
                 return rf"\[{whitespace_pattern}({'|'.join(regexes)})(,{whitespace_pattern}({'|'.join(regexes)})){num_repeats}{allow_empty}{whitespace_pattern}\]"
 
@@ -515,7 +515,7 @@ def to_regex(
             # return rf"({'|'.join(regexes)})"
             # add multithreading to use the max amount of jobs:
             import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ProcessPoolExecutor() as executor:
                 regexes = list(executor.map(lambda t: to_regex(resolver, {"type": t}, whitespace_pattern), instance_type))
             return rf"({'|'.join(regexes)})"
 

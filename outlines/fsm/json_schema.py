@@ -252,7 +252,6 @@ def to_regex(
         
         # Set the serializer to cloudpickle or dill
         multiprocessing.set_executable(None)
-        multiprocessing.set_context(multiprocessing.get_context('spawn'))
         
         # Use multiprocessing as usual
         with multiprocessing.Pool() as pool:

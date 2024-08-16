@@ -246,6 +246,14 @@ def to_regex(
     elif "anyOf" in instance:
         import multiprocessing
         import cloudpickle  # or import dill
+        class CloudpickleSerializer(multiprocessing.reduction.ForkingPickler):
+            def __init__(self, *args):
+                super().__init__(*args)
+                self.dispatch_table = cloudpickle.dispatch_table  # or dill.dispatch_table
+        
+        # Set the custom serializer as the default serializer
+        multiprocessing.reduction.ForkingPickler = CloudpickleSerializer
+
         
         # Set the multiprocessing start method to 'spawn'
         multiprocessing.set_start_method('spawn')
@@ -253,7 +261,6 @@ def to_regex(
 
 
         context = multiprocessing.get_context('spawn')
-        context.set_serializer(cloudpickle.dumps)
         
         # Use multiprocessing as usual
         with context.Pool() as pool:

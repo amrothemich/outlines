@@ -144,10 +144,10 @@ def initializer(resolver, whitespace_pattern):
     global_whitespace_pattern = whitespace_pattern
 
 def process_regex(t):
-    return to_regex(global_resolver, t, global_whitespace_pattern)
+    return to_regex(global_resolver, t, global_whitespace_pattern, first_call=False)
 
 def to_regex(
-    resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None
+    resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None, first_call=True
 ):
     """Translate a JSON Schema instance into a regex that validates the schema.
 
@@ -248,21 +248,19 @@ def to_regex(
     # To validate against `anyOf`, the given data must be valid against
     # any (one or more) of the given subschemas.
     elif "anyOf" in instance:
-        import multiprocessing
-
-            # Create a custom process class with daemonic=False
-        class NonDaemonicProcess(multiprocessing.Process):
-            def _get_daemon(self):
-                return False
-            def _set_daemon(self, value):
-                pass
-            daemon = property(_get_daemon, _set_daemon)
-
-        # Use multiprocessing as usual
-        with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern), process_class=NonDaemonicProcess) as pool:
-            pool.daemon = False
-            regexes = list(pool.map(process_regex, list(instance["anyOf"])))
-        return rf"({'|'.join(subregexes)})"
+        if first_call:
+            import multiprocessing
+        
+            
+            # Use multiprocessing as usual
+            with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern)) as pool:
+                pool.daemon = False
+                regexes = list(pool.map(process_regex, list(instance["anyOf"])))
+        else:
+            subregexes = [
+                to_regex(resolver, t, whitespace_pattern) for t in instance["anyOf"]
+            ]
+            return rf"({'|'.join(subregexes)})"
 
     # To validate against oneOf, the given data must be valid against exactly
     # one of the given subschemas.

@@ -138,6 +138,9 @@ def validate_quantifiers(
             raise ValueError("max bound must be greater than or equal to min bound")
     return min_bound, max_bound
 
+def process_regex(args):
+    resolver, t, whitespace_pattern = args
+    return to_regex(resolver, t, whitespace_pattern)
 
 def to_regex(
     resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None
@@ -182,7 +185,7 @@ def to_regex(
         ]
         import concurrent.futures
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            regexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), types))
+            regexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in types]))
         regexes = [rf"({r})" for r in regexes]
         return rf"{'|'.join(regexes)}"
 
@@ -211,7 +214,8 @@ def to_regex(
 
             import concurrent.futures
             with concurrent.futures.ProcessPoolExecutor() as executor:
-                property_subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), properties.values()))
+                
+                property_subregexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in properties.values()]))
             for i in range(len(property_subregexes)):
                 subregex = f'{whitespace_pattern}"{re.escape(list(properties.keys())[i])}"{whitespace_pattern}:{whitespace_pattern}'
                 subregex += property_subregexes[i]
@@ -250,9 +254,7 @@ def to_regex(
     # To validate against allOf, the given data must be valid against all of the
     # given subschemas.
     elif "allOf" in instance:
-        subregexes = [
-            to_regex(resolver, t, whitespace_pattern) for t in instance["allOf"]
-        ]
+        subregexes = subregexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["allOf"]]))
         subregexes_str = [f"{subregex}" for subregex in subregexes]
         return rf"({''.join(subregexes_str)})"
 
@@ -268,7 +270,8 @@ def to_regex(
 
         import concurrent.futures
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["anyOf"]))
+            subregexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["anyOf"]]))
+            
         return rf"({'|'.join(subregexes)})"
 
     # To validate against oneOf, the given data must be valid against exactly
@@ -276,11 +279,7 @@ def to_regex(
     elif "oneOf" in instance:
         import concurrent.futures
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["oneOf"]))
-        
-        
-
-        xor_patterns = [f"(?:{subregex})" for subregex in subregexes]
+            subregexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["oneOf"]]))
 
         return rf"({'|'.join(xor_patterns)})"
 
@@ -288,7 +287,7 @@ def to_regex(
     elif "prefixItems" in instance:
         import concurrent.futures
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            element_patterns = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["prefixItems"]))
+            element_patterns = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance["prefixItems"]])) 
         
         comma_split_pattern = rf"{whitespace_pattern},{whitespace_pattern}"
         tuple_inner = comma_split_pattern.join(element_patterns)
@@ -437,7 +436,7 @@ def to_regex(
 
                 import concurrent.futures
                 with concurrent.futures.ProcessPoolExecutor() as executor:
-                    regexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), legal_types))
+                    regexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in legal_types])) 
                 return rf"\[{whitespace_pattern}({'|'.join(regexes)})(,{whitespace_pattern}({'|'.join(regexes)})){num_repeats}{allow_empty}{whitespace_pattern}\]"
 
         elif instance_type == "object":
@@ -516,7 +515,7 @@ def to_regex(
             # add multithreading to use the max amount of jobs:
             import concurrent.futures
             with concurrent.futures.ProcessPoolExecutor() as executor:
-                regexes = list(executor.map(lambda t: to_regex(resolver, {"type": t}, whitespace_pattern), instance_type))
+                regexes = list(executor.map(process_regex, [(resolver, t, whitespace_pattern) for t in instance_type])) 
             return rf"({'|'.join(regexes)})"
 
     raise NotImplementedError(

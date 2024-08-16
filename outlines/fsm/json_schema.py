@@ -249,9 +249,17 @@ def to_regex(
     # any (one or more) of the given subschemas.
     elif "anyOf" in instance:
         import multiprocessing
-        
+
+            # Create a custom process class with daemonic=False
+        class NonDaemonicProcess(multiprocessing.Process):
+            def _get_daemon(self):
+                return False
+            def _set_daemon(self, value):
+                pass
+            daemon = property(_get_daemon, _set_daemon)
+
         # Use multiprocessing as usual
-        with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern)) as pool:
+        with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern), process_class=NonDaemonicProcess) as pool:
             pool.daemon = False
             regexes = list(pool.map(process_regex, list(instance["anyOf"])))
         return rf"({'|'.join(subregexes)})"

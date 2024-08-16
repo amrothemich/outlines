@@ -252,6 +252,7 @@ def to_regex(
         
         # Use multiprocessing as usual
         with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern)) as pool:
+            pool.daemon = False
             regexes = list(pool.map(process_regex, list(instance["anyOf"])))
         return rf"({'|'.join(subregexes)})"
 

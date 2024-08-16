@@ -477,11 +477,11 @@ def to_regex(
             # Here we need to make the choice to exclude generating an object
             # if the specification of the object is not give, even though a JSON
             # object that contains an object here would be valid under the specification.
-            regexes = [
-                to_regex(resolver, {"type": t}, whitespace_pattern)
-                for t in instance_type
-                if t != "object"
-            ]
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                regexes = list(executor.map(lambda t: to_regex(resolver, {"type": t}, whitespace_pattern), instance_type))
+            return rf"({'|'.join(regexes)})"
+
             return rf"({'|'.join(regexes)})"
 
     raise NotImplementedError(

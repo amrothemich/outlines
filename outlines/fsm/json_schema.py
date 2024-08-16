@@ -198,14 +198,30 @@ def to_regex(
         # For each property after it (optional), we add with a comma before the property.
         if any(is_required):
             last_required_pos = max([i for i, value in enumerate(is_required) if value])
-            for i, (name, value) in enumerate(properties.items()):
-                subregex = f'{whitespace_pattern}"{re.escape(name)}"{whitespace_pattern}:{whitespace_pattern}'
-                subregex += to_regex(resolver, value, whitespace_pattern)
+            
+            # Non-threaded code:
+                # for i, (name, value) in enumerate(properties.items()):
+                #   subregex = f'{whitespace_pattern}"{re.escape(name)}"{whitespace_pattern}:{whitespace_pattern}'
+                #   subregex += to_regex(resolver, value, whitespace_pattern)
+                #   if i < last_required_pos:
+                #         subregex = f"{subregex}{whitespace_pattern},"
+                #   elif i > last_required_pos:
+                #         subregex = f"{whitespace_pattern},{subregex}"
+                #   regex += subregex if is_required[i] else f"({subregex})?"
+
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                property_subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), properties.values()))
+            for i in range(len(property_subregexes)):
+                subregex = f'{whitespace_pattern}"{re.escape(list(properties.keys())[i])}"{whitespace_pattern}:{whitespace_pattern}'
+                subregex += property_subregexes[i]
                 if i < last_required_pos:
                     subregex = f"{subregex}{whitespace_pattern},"
                 elif i > last_required_pos:
                     subregex = f"{whitespace_pattern},{subregex}"
                 regex += subregex if is_required[i] else f"({subregex})?"
+
+            
         # If no property is required, we have to create a possible pattern for each property in which
         # it's the last one necessarilly present. Then, we add the others as optional before and after
         # following the same strategy as described above.
@@ -253,10 +269,6 @@ def to_regex(
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
             subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["anyOf"]))
-
-        subregexes = [
-            to_regex(resolver, t, whitespace_pattern) for t in instance["anyOf"]
-        ]
         return rf"({'|'.join(subregexes)})"
 
     # To validate against oneOf, the given data must be valid against exactly

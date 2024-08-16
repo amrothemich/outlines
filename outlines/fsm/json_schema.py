@@ -180,7 +180,9 @@ def to_regex(
             {"type": "array"},
             {"type": "object"},
         ]
-        regexes = [to_regex(resolver, t, whitespace_pattern) for t in types]
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            regexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), types))
         regexes = [rf"({r})" for r in regexes]
         return rf"{'|'.join(regexes)}"
 
@@ -241,6 +243,17 @@ def to_regex(
     # To validate against `anyOf`, the given data must be valid against
     # any (one or more) of the given subschemas.
     elif "anyOf" in instance:
+                    
+            # regexes = [
+            #     to_regex(resolver, {"type": t}, whitespace_pattern)
+            #     for t in instance_type
+            #     if t != "object"
+            # ]
+
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["anyOf"]))
+
         subregexes = [
             to_regex(resolver, t, whitespace_pattern) for t in instance["anyOf"]
         ]
@@ -249,9 +262,11 @@ def to_regex(
     # To validate against oneOf, the given data must be valid against exactly
     # one of the given subschemas.
     elif "oneOf" in instance:
-        subregexes = [
-            to_regex(resolver, t, whitespace_pattern) for t in instance["oneOf"]
-        ]
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            subregexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["oneOf"]))
+        
+        
 
         xor_patterns = [f"(?:{subregex})" for subregex in subregexes]
 
@@ -259,9 +274,10 @@ def to_regex(
 
     # Create pattern for Tuples, per JSON Schema spec, `prefixItems` determines types at each idx
     elif "prefixItems" in instance:
-        element_patterns = [
-            to_regex(resolver, t, whitespace_pattern) for t in instance["prefixItems"]
-        ]
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            element_patterns = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), instance["prefixItems"]))
+        
         comma_split_pattern = rf"{whitespace_pattern},{whitespace_pattern}"
         tuple_inner = comma_split_pattern.join(element_patterns)
         return rf"\[{whitespace_pattern}{tuple_inner}{whitespace_pattern}\]"
@@ -407,9 +423,9 @@ def to_regex(
                     legal_types.append({"type": "object", "depth": depth - 1})
                     legal_types.append({"type": "array", "depth": depth - 1})
 
-                regexes = [
-                    to_regex(resolver, t, whitespace_pattern) for t in legal_types
-                ]
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    regexes = list(executor.map(lambda t: to_regex(resolver, t, whitespace_pattern), legal_types))
                 return rf"\[{whitespace_pattern}({'|'.join(regexes)})(,{whitespace_pattern}({'|'.join(regexes)})){num_repeats}{allow_empty}{whitespace_pattern}\]"
 
         elif instance_type == "object":
@@ -477,11 +493,18 @@ def to_regex(
             # Here we need to make the choice to exclude generating an object
             # if the specification of the object is not give, even though a JSON
             # object that contains an object here would be valid under the specification.
+            
+            
+            # regexes = [
+            #     to_regex(resolver, {"type": t}, whitespace_pattern)
+            #     for t in instance_type
+            #     if t != "object"
+            # ]
+            # return rf"({'|'.join(regexes)})"
+            # add multithreading to use the max amount of jobs:
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 regexes = list(executor.map(lambda t: to_regex(resolver, {"type": t}, whitespace_pattern), instance_type))
-            return rf"({'|'.join(regexes)})"
-
             return rf"({'|'.join(regexes)})"
 
     raise NotImplementedError(

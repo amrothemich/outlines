@@ -148,6 +148,11 @@ def process_regex(t):
     print('completed a thread')
     return ret
 
+
+def is_in_pool():
+    import multiprocessing
+    return multiprocessing.current_process().name != 'MainProcess'
+
 def to_regex(
     resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None, first_call=False
 ):
@@ -251,7 +256,7 @@ def to_regex(
     # To validate against `anyOf`, the given data must be valid against
     # any (one or more) of the given subschemas.
     elif "anyOf" in instance:
-        if first_call:
+        if not is_in_pool():
             print('Started threading...')
             import multiprocessing
             

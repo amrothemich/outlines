@@ -262,12 +262,12 @@ def to_regex(
             # Use multiprocessing as usual
             with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern)) as pool:
                 pool.daemon = False
-                regexes = list(pool.map(process_regex, list(instance["anyOf"])))
+                subregexes = list(pool.map(process_regex, list(instance["anyOf"])))
         else:
             subregexes = [
                 to_regex(resolver, t, whitespace_pattern) for t in instance["anyOf"]
             ]
-            return rf"({'|'.join(subregexes)})"
+        return rf"({'|'.join(subregexes)})"
 
     # To validate against oneOf, the given data must be valid against exactly
     # one of the given subschemas.

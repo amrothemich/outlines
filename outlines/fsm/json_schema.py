@@ -83,7 +83,7 @@ def build_regex_from_schema(schema: str, whitespace_pattern: Optional[str] = Non
     resolver = registry.resolver()
 
     content = schema.contents
-    return to_regex(resolver, content, whitespace_pattern, first_call=False)
+    return to_regex(resolver, content, whitespace_pattern, first_call=True)
 
 
 def _get_num_items_pattern(min_items, max_items, whitespace_pattern):

@@ -255,18 +255,21 @@ def to_regex(
     # To validate against `anyOf`, the given data must be valid against
     # any (one or more) of the given subschemas.
     elif "anyOf" in instance:
-        if not is_in_pool():
-            print('Started threading...')
-            import multiprocessing
-            
-            # Use multiprocessing as usual
-            with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern)) as pool:
-                pool.daemon = False
-                subregexes = list(pool.map(process_regex, list(instance["anyOf"])))
-        else:
-            subregexes = [
-                to_regex(resolver, t, whitespace_pattern) for t in instance["anyOf"]
+        should_use_threading = []
+        shouldnt_use_threading = []
+        for t in instance["anyOf"]:
+            if any([re.match(r'.*Conditional.*Layer', ref) for ref in t.values()]):
+                should_use_threading.append(t)
+            else:
+                shouldnt_use_threading.append(t)
+        subregexes = [
+            to_regex(resolver, t, whitespace_pattern) for t in should_use_threading
+        ]
+        subregexes.extend(
+            [
+                to_regex(resolver, t, whitespace_pattern) for t in shouldnt_use_threading
             ]
+        )
         return rf"({'|'.join(subregexes)})"
 
     # To validate against oneOf, the given data must be valid against exactly

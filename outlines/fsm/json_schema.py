@@ -173,6 +173,7 @@ def to_regex(
         Pattern to use for JSON syntactic whitespace (doesn't impact string literals)
         Example: allow only a single space or newline with `whitespace_pattern=r"[\n ]?"`
     """
+    print(f'to_regex called, first call: {str(first_call)}')
 
     # set whitespace pattern
     if whitespace_pattern is None:

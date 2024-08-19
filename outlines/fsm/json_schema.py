@@ -251,6 +251,7 @@ def to_regex(
     # any (one or more) of the given subschemas.
     elif "anyOf" in instance:
         if first_call:
+            print('Started threading...')
             import multiprocessing
             
             # Use multiprocessing as usual

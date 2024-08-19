@@ -147,7 +147,7 @@ def process_regex(t):
     return to_regex(global_resolver, t, global_whitespace_pattern, first_call=False)
 
 def to_regex(
-    resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None, first_call=True
+    resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None, first_call=False
 ):
     """Translate a JSON Schema instance into a regex that validates the schema.
 
@@ -250,7 +250,6 @@ def to_regex(
     elif "anyOf" in instance:
         if first_call:
             import multiprocessing
-        
             
             # Use multiprocessing as usual
             with multiprocessing.Pool(initializer=initializer, initargs=(resolver, whitespace_pattern)) as pool:

@@ -266,11 +266,10 @@ def to_regex(
             to_regex(resolver, t, whitespace_pattern) for t in should_use_threading
         ]
         subregexes.extend(
-            [
-                to_regex(resolver, t, whitespace_pattern) for t in shouldnt_use_threading
-            ]
+            [to_regex(resolver, t, whitespace_pattern) for t in shouldnt_use_threading]
         )
         return rf"({'|'.join(subregexes)})"
+
 
     # To validate against oneOf, the given data must be valid against exactly
     # one of the given subschemas.

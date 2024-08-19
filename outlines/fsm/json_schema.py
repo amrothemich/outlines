@@ -144,7 +144,9 @@ def initializer(resolver, whitespace_pattern):
     global_whitespace_pattern = whitespace_pattern
 
 def process_regex(t):
-    return to_regex(global_resolver, t, global_whitespace_pattern)
+    ret = to_regex(global_resolver, t, global_whitespace_pattern)
+    print('completed a thread')
+    return ret
 
 def to_regex(
     resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None, first_call=False

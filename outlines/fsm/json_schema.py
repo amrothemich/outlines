@@ -259,9 +259,9 @@ def to_regex(
         shouldnt_use_threading = []
         for t in instance["anyOf"]:
             if any([re.match(r'.*Conditional.*Layer', ref) for ref in t.values()]):
-                should_use_threading.append(t)
-            else:
                 shouldnt_use_threading.append(t)
+            else:
+                should_use_threading.append(t)
         subregexes = [
         if len(should_use_threading) > 0:
             print("starting threading")

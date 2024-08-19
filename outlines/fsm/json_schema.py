@@ -262,7 +262,7 @@ def to_regex(
                 shouldnt_use_threading.append(t)
             else:
                 should_use_threading.append(t)
-        subregexes = [
+        subregexes = []
         if len(should_use_threading) > 0:
             print(f"starting threading with {len(should_use_threading)} threads.")
             subregexes.extend(

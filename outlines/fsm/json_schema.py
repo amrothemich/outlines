@@ -264,10 +264,11 @@ def to_regex(
                 should_use_threading.append(t)
         subregexes = [
         if len(should_use_threading) > 0:
-            print("starting threading")
+            print(f"starting threading with {len(should_use_threading)} threads.")
             subregexes.extend(
                 [to_regex(resolver, t, whitespace_pattern) for t in should_use_threading]
             )
+            print(f"ending threading with {len(should_use_threading)} threads.")
         subregexes.extend(
             [to_regex(resolver, t, whitespace_pattern) for t in shouldnt_use_threading]
         )
